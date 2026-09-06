@@ -84,6 +84,7 @@ async function exportTestBackup(){
   try{
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
       await navigator.share({title:'Backup Esmalta CRM',text:'Backup dos testes da Esmalta',files:[file]});
+      localStorage.setItem('esmaltaLastManualBackup',payload.exportedAt);
       toastMsg('Backup pronto para salvar ou compartilhar.');
       return;
     }
@@ -91,6 +92,7 @@ async function exportTestBackup(){
   const url=URL.createObjectURL(file);
   const a=document.createElement('a');a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);
+  localStorage.setItem('esmaltaLastManualBackup',payload.exportedAt);
   toastMsg('Backup exportado.');
 }
 function chooseBackupFile(){ document.getElementById('backupFileInput')?.click(); }
@@ -129,7 +131,9 @@ async function refreshBackupStatus(){
   const snap=await readLatestSnapshot();
   if(!snap){el.textContent='Ainda não há backup local neste aparelho.';return;}
   const when=new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(snap.createdAt));
-  el.textContent=`Última cópia local: ${when} · ${snap.data.clients.length} clientes · ${snap.data.appointments.length} agendamentos`;
+  const manual=localStorage.getItem('esmaltaLastManualBackup');
+  const manualText=manual?` · arquivo salvo ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(manual))}`:' · nenhum arquivo externo salvo ainda';
+  el.textContent=`Última cópia local: ${when} · ${snap.data.clients.length} clientes · ${snap.data.appointments.length} agendamentos${manualText}`;
 }
 function safetyPanelHTML(){
   const hasReal=A.length===0&&C.length===0;
@@ -147,4 +151,15 @@ Storage.prototype.setItem=function(key,value){
   if(this===localStorage&&(key==='esmaltaAppointments'||key==='esmaltaClients')) queueLocalSnapshot('auto');
 };
 
-setTimeout(()=>writeLocalSnapshot('load'),500);
+async function bootstrapTestSafety(){
+  const hasPersisted=localStorage.getItem('esmaltaAppointments')!==null||localStorage.getItem('esmaltaClients')!==null;
+  const snap=await readLatestSnapshot();
+  if(!hasPersisted&&snap&&(snap.data.clients.length||snap.data.appointments.length)){
+    const when=new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(snap.createdAt));
+    const restore=confirm(`Encontrei uma cópia local do CRM de ${when}.\n\n${snap.data.clients.length} clientes · ${snap.data.appointments.length} agendamentos\n\nRestaurar agora?`);
+    if(restore){ restorePayload(snap.data); toastMsg('Dados recuperados da cópia local.'); }
+    return;
+  }
+  await writeLocalSnapshot('load');
+}
+setTimeout(bootstrapTestSafety,500);

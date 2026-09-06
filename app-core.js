@@ -37,24 +37,22 @@ const wstart=d=>{let x=obj(d),n=x.getDay();x.setDate(x.getDate()+(n===0?-6:1-n))
 const statusLabel=s=>({scheduled:'Agendado',confirmed:'Confirmado',done:'Concluído',cancelled:'Cancelado',missed:'Faltou'}[s]||s);
 const ageText=r=>r.due<today()?`${days(r.due,today())} dias atrasada`:r.notify===today()?'Contato hoje':`Contato ${fmt(r.notify)}`;
 
-const demoToday=obj(today()).getDay()===0?add(today(),1):today();
-const seedA=[
- {id:1,client:'Camila Rocha',phone:'77999990001',date:demoToday,time:'08:00',procedure:'manutencao',status:'confirmed'},
- {id:2,client:'Larissa Almeida',phone:'77999990002',date:demoToday,time:'10:00',procedure:'banhoGel',status:'scheduled'},
- {id:3,client:'Bruna Martins',phone:'77999990003',date:add(demoToday,1),time:'14:00',procedure:'peMao',status:'scheduled'}
-];
-const seedC=[
- {id:1,name:'Camila Rocha',phone:'77999990001',lastProcedure:'manutencao',lastVisit:add(today(),-24),nextDue:add(today(),1),visits:7,spent:595},
- {id:2,name:'Larissa Almeida',phone:'77999990002',lastProcedure:'banhoGel',lastVisit:add(today(),-25),nextDue:today(),visits:4,spent:410},
- {id:3,name:'Bruna Martins',phone:'77999990003',lastProcedure:'peMao',lastVisit:add(today(),-18),visits:3,spent:150},
- {id:4,name:'Paula Menezes',phone:'77999990004',lastProcedure:'manutencao',lastVisit:add(today(),-38),nextDue:add(today(),-13),visits:8,spent:735},
- {id:5,name:'Renata Lopes',phone:'77999990005',lastProcedure:'peOuMao',lastVisit:add(today(),-22),visits:2,spent:60}
-];
-let A=JSON.parse(localStorage.getItem('esmaltaAppointments')||'null')||seedA;
-if(obj(today()).getDay()===0){A=A.map(a=>['77999990001','77999990002'].includes(a.phone)&&a.date===today()?{...a,date:add(today(),1)}:a)}
-let C=(JSON.parse(localStorage.getItem('esmaltaClients')||'null')||seedC).map(c=>({...c,visits:c.visits??c.totalVisits??0,spent:c.spent??c.totalSpent??0}));
+// A partir desta versão, a base é exclusivamente real. Este epoch limpa apenas os dados
+// antigos de demonstração uma única vez e marca o início da base migrável da Marina.
+const ESMALTA_DATA_EPOCH='marina-real-v1';
+if(localStorage.getItem('esmaltaDataEpoch')!==ESMALTA_DATA_EPOCH){
+  localStorage.removeItem('esmaltaAppointments');
+  localStorage.removeItem('esmaltaClients');
+  localStorage.setItem('esmaltaDataEpoch',ESMALTA_DATA_EPOCH);
+}
+let A=JSON.parse(localStorage.getItem('esmaltaAppointments')||'[]');
+let C=JSON.parse(localStorage.getItem('esmaltaClients')||'[]').map(c=>({...c,visits:c.visits??c.totalVisits??0,spent:c.spent??c.totalSpent??0}));
 let tab='today',view='day',sel=today();
-const save=()=>{localStorage.setItem('esmaltaAppointments',JSON.stringify(A));localStorage.setItem('esmaltaClients',JSON.stringify(C))};
+const save=()=>{
+  localStorage.setItem('esmaltaAppointments',JSON.stringify(A));
+  localStorage.setItem('esmaltaClients',JSON.stringify(C));
+  if(window.persistEsmaltaMirror) window.persistEsmaltaMirror();
+};
 
 function returns(){return C.filter(c=>c.lastVisit&&P[c.lastProcedure]).map(c=>{let p=P[c.lastProcedure];if(p.days){let due=c.nextDue||add(c.lastVisit,p.days);return{...c,due,notify:add(due,-1),type:'return',suggest:p.next||c.lastProcedure}}let due=add(c.lastVisit,p.react||15);return{...c,due,notify:due,type:'react',suggest:c.lastProcedure}})}
 function future(r){return A.some(a=>a.phone===r.phone&&a.date>=today()&&!['cancelled','missed'].includes(a.status))}

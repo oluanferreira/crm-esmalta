@@ -67,6 +67,7 @@ function cloudSetStatus(s) {
 
 function toServerAppointment(a) {
   return {
+    owner_id: cloudUser ? cloudUser.id : null,
     local_id: String(a.id),
     client_name: a.client, phone: a.phone || "", date: a.date, time: a.time,
     procedure: a.procedure, status: a.status || "scheduled",
@@ -76,6 +77,7 @@ function toServerAppointment(a) {
 
 function toServerClient(c) {
   return {
+    owner_id: cloudUser ? cloudUser.id : null,
     local_id: String(c.id),
     name: c.name, phone: c.phone || "",
     last_procedure: c.lastProcedure || null, last_visit: c.lastVisit || null,

@@ -22,7 +22,7 @@ openClient = function(id){
 
 function openClientEditor(id=''){
   const c = id ? C.find(x=>String(x.id)===String(id)) : null;
-  overlay.innerHTML = `<div class="back" onclick="if(event.target===this)closeSheet()"><section class="sheet"><div class="grab"></div><div class="sheettop"><div><span class="eyebrow">${c?'EDITAR':'NOVA'} CLIENTE</span><h2>${c?'Dados da cliente':'Adicionar cliente'}</h2></div><button class="icon" onclick="closeSheet()">${ICONS.close}</button></div><div class="form client-editor-form"><label>Nome<input id="clientName" autocomplete="name" placeholder="Nome da cliente" value="${c?.name||''}"></label><label>WhatsApp<input id="clientPhone" inputmode="tel" autocomplete="tel" placeholder="(77) 99999-9999" value="${c?.phone||''}"></label><div class="client-editor-note">O WhatsApp identifica a cliente no histórico e nos agendamentos.</div><button class="primary" onclick="saveClientEditor('${id}')">${c?'Salvar alterações':'Adicionar cliente'}</button></div></section></div>`;
+  overlay.innerHTML = `<div class="back" onclick="if(event.target===this)closeSheet()"><section class="sheet"><div class="grab"></div><div class="sheettop"><div><span class="eyebrow">${c?'EDITAR':'NOVA'} CLIENTE</span><h2>${c?'Dados da cliente':'Adicionar cliente'}</h2></div><button class="icon" onclick="closeSheet()">${ICONS.close}</button></div><div class="form client-editor-form"><label>Nome<input id="clientName" autocomplete="name" placeholder="Nome da cliente" value="${c?.name||''}"></label><label>WhatsApp<input id="clientPhone" inputmode="tel" autocomplete="tel" placeholder="(77) 99999-9999" value="${c?.phone||''}"></label><div class="client-editor-note">WhatsApp é opcional. Com ele, a cliente entra no histórico, retornos e atalhos de mensagem.</div><button class="primary" onclick="saveClientEditor('${id}')">${c?'Salvar alterações':'Adicionar cliente'}</button></div></section></div>`;
   setTimeout(()=>document.getElementById('clientName')?.focus(),60);
 }
 
@@ -30,8 +30,8 @@ function saveClientEditor(id=''){
   const name = document.getElementById('clientName').value.trim();
   const phone = document.getElementById('clientPhone').value.replace(/\D/g,'');
   if(!name) return toastMsg('Informe o nome da cliente.');
-  if(phone.length<10) return toastMsg('Informe um WhatsApp válido.');
-  const duplicate = C.find(c=>c.phone===phone && String(c.id)!==String(id));
+  if(phone&&phone.length<10) return toastMsg('WhatsApp incompleto. Confira o número.');
+  const duplicate = phone ? C.find(c=>c.phone&&c.phone===phone && String(c.id)!==String(id)) : null;
   if(duplicate) return toastMsg(`Esse WhatsApp já pertence a ${duplicate.name}.`);
 
   if(id){

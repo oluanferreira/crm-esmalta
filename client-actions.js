@@ -22,7 +22,7 @@ openClient = function(id){
 
 function openClientEditor(id=''){
   const c = id ? C.find(x=>String(x.id)===String(id)) : null;
-  overlay.innerHTML = `<div class="back" onclick="if(event.target===this)closeSheet()"><section class="sheet"><div class="grab"></div><div class="sheettop"><div><span class="eyebrow">${c?'EDITAR':'NOVA'} CLIENTE</span><h2>${c?'Dados da cliente':'Adicionar cliente'}</h2></div><button class="icon" onclick="closeSheet()">${ICONS.close}</button></div><div class="form client-editor-form"><label>Nome<input id="clientName" autocomplete="name" placeholder="Nome da cliente" value="${c?.name||''}"></label><label>WhatsApp<input id="clientPhone" inputmode="tel" autocomplete="tel" placeholder="(77) 99999-9999" value="${c?.phone||''}"></label><div class="client-editor-note">WhatsApp é opcional. Com ele, a cliente entra no histórico, retornos e atalhos de mensagem.</div><button class="primary" onclick="saveClientEditor('${id}')">${c?'Salvar alterações':'Adicionar cliente'}</button></div></section></div>`;
+  overlay.innerHTML = `<div class="back" onclick="if(event.target===this)closeSheet()"><section class="sheet"><div class="grab"></div><div class="sheettop"><div><span class="eyebrow">${c?'EDITAR':'NOVA'} CLIENTE</span><h2>${c?'Dados da cliente':'Adicionar cliente'}</h2></div><button class="icon" onclick="closeSheet()">${ICONS.close}</button></div><div class="form client-editor-form"><label>Nome<input id="clientName" autocomplete="name" placeholder="Nome da cliente" value="${c?.name||''}"></label><label>WhatsApp<input id="clientPhone" inputmode="tel" autocomplete="tel" placeholder="(77) 99999-9999" value="${c?.phone||''}"></label><div class="client-editor-note">WhatsApp é opcional. Com ele, a cliente entra no histórico, retornos e atalhos de mensagem.</div><button class="primary" onclick="saveClientEditor('${id}')">${c?'Salvar alterações':'Adicionar cliente'}</button>${c?`<button class="danger" onclick="deleteClient('${id}')">Excluir cliente</button>`:''}</div></section></div>`;
   setTimeout(()=>document.getElementById('clientName')?.focus(),60);
 }
 
@@ -53,4 +53,15 @@ function saveClientEditor(id=''){
     toastMsg('Cliente adicionada.');
     openClient(newClient.id);
   }
+}
+
+function deleteClient(id=''){
+  const c=C.find(x=>String(x.id)===String(id));
+  if(!c) return toastMsg('Cliente não encontrada.');
+  const upcoming=A.filter(a=>a.phone&&c.phone&&a.phone===c.phone&&a.date>=today()&&!['cancelled','missed','done'].includes(a.status)).length;
+  const msg=upcoming?`Excluir ${c.name}? Ela tem ${upcoming} agendamento(s) futuro(s) que serão mantidos no histórico.`:`Excluir ${c.name} do cadastro?`;
+  if(!confirm(msg)) return;
+  C=C.filter(x=>String(x.id)!==String(id));
+  save();closeSheet();render();
+  toastMsg('Cliente excluída. Histórico de atendimentos mantido.');
 }

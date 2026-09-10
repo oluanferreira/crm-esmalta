@@ -62,6 +62,7 @@ function deleteClient(id=''){
   const msg=upcoming?`Excluir ${c.name}? Ela tem ${upcoming} agendamento(s) futuro(s) que serão mantidos no histórico.`:`Excluir ${c.name} do cadastro?`;
   if(!confirm(msg)) return;
   C=C.filter(x=>String(x.id)!==String(id));
+  if(typeof cloudTombstone==='function')cloudTombstone('c',id);
   save();closeSheet();render();
   toastMsg('Cliente excluída. Histórico de atendimentos mantido.');
 }

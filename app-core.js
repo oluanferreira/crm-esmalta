@@ -50,10 +50,28 @@ let A=JSON.parse(localStorage.getItem('esmaltaAppointments')||'[]');
 let C=JSON.parse(localStorage.getItem('esmaltaClients')||'[]').map(c=>({...c,visits:c.visits??c.totalVisits??0,spent:c.spent??c.totalSpent??0}));
 let tab='today',view='day',sel=today();
 const save=()=>{
+  const t=new Date().toISOString();
+  A.forEach(a=>{a.updated_at=t;});
+  C.forEach(c=>{c.updated_at=t;});
   localStorage.setItem('esmaltaAppointments',JSON.stringify(A));
   localStorage.setItem('esmaltaClients',JSON.stringify(C));
   if(window.persistEsmaltaMirror) window.persistEsmaltaMirror();
+  if(typeof cloudSchedule==='function')cloudSchedule();
 };
+function cloudTombstone(kind,id){
+  try{
+    const k='esmaltaDeleted';
+    const d=JSON.parse(localStorage.getItem(k)||'{"a":[],"c":[]}');
+    const arr=kind==='a'?d.a:d.c;
+    if(!arr.includes(String(id)))arr.push(String(id));
+    localStorage.setItem(k,JSON.stringify(d));
+  }catch(e){}
+  if(typeof cloudSchedule==='function')cloudSchedule();
+}
+function cloudTombstones(){
+  try{return JSON.parse(localStorage.getItem('esmaltaDeleted')||'{"a":[],"c":[]}');}
+  catch(e){return{a:[],c:[]};}
+}
 
 function returns(){return C.filter(c=>c.lastVisit&&P[c.lastProcedure]).map(c=>{let p=procOf(c.lastProcedure);if(p.days){let due=c.nextDue||add(c.lastVisit,p.days);return{...c,due,notify:add(due,-1),type:'return',suggest:p.next||c.lastProcedure}}let due=add(c.lastVisit,p.react||15);return{...c,due,notify:due,type:'react',suggest:c.lastProcedure}})}
 function future(r){return A.some(a=>a.phone===r.phone&&a.date>=today()&&!['cancelled','missed'].includes(a.status))}

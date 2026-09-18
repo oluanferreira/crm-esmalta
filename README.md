@@ -23,3 +23,5 @@ O retorno entra na fila de contato 1 dia antes da data prevista e possui atalho 
 ## Deploy atual
 
 https://crm-esmalta.vercel.app
+
+<!-- integração GitHub ↔ Vercel validada em 2026-09-18 -->

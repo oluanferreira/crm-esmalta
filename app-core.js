@@ -1,9 +1,15 @@
 const P={
-  alongamento:{name:'Alongamento',price:165,min:120,days:25,next:'manutencao'},
-  manutencao:{name:'Manutenção',price:85,min:80,days:25,next:'manutencao'},
-  banhoGel:{name:'Banho de gel',price:120,min:90,days:25,next:'manutencao'},
-  peMao:{name:'Pé e mão tradicional',price:50,min:90,react:15},
-  peOuMao:{name:'Pé ou mão tradicional',price:30,min:50,react:15}
+  alongamento:{name:'Alongamento',price:165,min:120,days:25,next:'manutencao',group:'estrutura'},
+  alongamentoGel:{name:'Alongamento com esmaltação em gel',price:180,min:90,days:25,next:'manutencaoGel',group:'estrutura'},
+  manutencao:{name:'Manutenção',price:85,min:80,days:25,next:'manutencao',group:'estrutura'},
+  manutencaoGel:{name:'Manutenção com esmaltação em gel',price:100,min:80,days:25,next:'manutencaoGel',group:'estrutura'},
+  banhoGel:{name:'Banho de gel',price:120,min:90,days:25,next:'manutencao',group:'estrutura'},
+  banhoGelEsmaltacao:{name:'Banho de gel com esmaltação em gel',price:135,min:80,days:25,next:'manutencaoGel',group:'estrutura'},
+  esmaltacaoGel:{name:'Esmaltação em gel',price:70,min:60,react:15,group:'esmaltacaoGel'},
+  peMao:{name:'Pé e mão tradicional',price:50,min:90,react:15,groups:['pe','mao']},
+  pe:{name:'Pé tradicional',price:30,min:50,react:15,group:'pe'},
+  mao:{name:'Mão tradicional',price:30,min:50,react:15,group:'mao'},
+  peOuMao:{name:'Pé ou mão tradicional (antigo)',price:30,min:50,react:15,group:'tradicionalLegacy',legacy:true}
 };
 const ICONS={
  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-6h5v6"/></svg>',
@@ -35,6 +41,29 @@ const days=(a,b)=>Math.floor((obj(b)-obj(a))/86400000);
 const WORK_START=420;\nconst DAY_VISUAL_END=1440;\nconst work=d=>obj(d).getDay()===0?null:[WORK_START,DAY_VISUAL_END];
 const wstart=d=>{let x=obj(d),n=x.getDay();x.setDate(x.getDate()+(n===0?-6:1-n));return iso(x)};
 const procOf=id=>P[id]||{name:'(procedimento anterior)',min:60,price:0,days:0};
+const activeProcedures=()=>Object.entries(P).filter(([,p])=>!p.legacy);
+const procKeys=id=>{let p=procOf(id);return p.groups||[p.group||id]};
+const sameClient=(a,c)=>c.phone?(a.phone===c.phone):(!a.phone&&String(a.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
+function findClientForAppointment(a){return a.phone?C.find(c=>c.phone===a.phone):C.find(c=>!c.phone&&String(c.name||'').trim().toLowerCase()===String(a.client||'').trim().toLowerCase())}
+function ensureClientForAppointment(a){
+  let c=findClientForAppointment(a);
+  if(c){c.name=a.client;return c}
+  c={id:Date.now()+Math.floor(Math.random()*1000),name:a.client,phone:a.phone||'',lastProcedure:null,lastVisit:null,nextDue:null,visits:0,spent:0};
+  C.push(c);return c;
+}
+function rebuildClientStats(){
+  C.forEach(c=>{
+    const done=A.filter(a=>a.status==='done'&&sameClient(a,c)).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+    c.visits=done.length;
+    c.spent=done.reduce((sum,a)=>sum+(procOf(a.procedure).price||0),0);
+    if(done.length){
+      const last=done[0],p=procOf(last.procedure);
+      c.lastProcedure=last.procedure;c.lastVisit=last.date;c.nextDue=p.days?add(last.date,p.days):null;
+    }else{
+      c.lastProcedure=null;c.lastVisit=null;c.nextDue=null;
+    }
+  });
+}
 const statusLabel=s=>({scheduled:'Agendado',confirmed:'Confirmado',done:'Concluído',cancelled:'Cancelado',missed:'Faltou'}[s]||s);
 const ageText=r=>r.due<today()?`${days(r.due,today())} dias atrasada`:r.notify===today()?'Contato hoje':`Contato ${fmt(r.notify)}`;
 
@@ -73,8 +102,31 @@ function cloudTombstones(){
   catch(e){return{a:[],c:[]};}
 }
 
-function returns(){return C.filter(c=>c.lastVisit&&P[c.lastProcedure]).map(c=>{let p=procOf(c.lastProcedure);if(p.days){let due=c.nextDue||add(c.lastVisit,p.days);return{...c,due,notify:add(due,-1),type:'return',suggest:p.next||c.lastProcedure}}let due=add(c.lastVisit,p.react||15);return{...c,due,notify:due,type:'react',suggest:c.lastProcedure}})}
-function future(r){return A.some(a=>a.phone===r.phone&&a.date>=today()&&!['cancelled','missed'].includes(a.status))}
+function returns(){
+  let out=[];
+  C.forEach(c=>{
+    const done=A.filter(a=>a.status==='done'&&P[a.procedure]&&sameClient(a,c)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+    const latest={};
+    done.forEach(a=>procKeys(a.procedure).forEach(k=>{latest[k]=a}));
+    Object.entries(latest).forEach(([key,a])=>{
+      let p=procOf(a.procedure),base=key==='pe'?P.pe:key==='mao'?P.mao:p;
+      let technicalDays=p.days||base.days||0,reactDays=technicalDays?0:(p.react??base.react??0);
+      if(!technicalDays&&!reactDays)return;
+      let due=add(a.date,technicalDays||reactDays);
+      let suggest=key==='pe'?'pe':key==='mao'?'mao':(p.next||a.procedure);
+      out.push({...c,rid:String(c.id)+'::'+key,recurrenceKey:key,lastVisit:a.date,lastProcedure:a.procedure,due,notify:technicalDays?add(due,-1):due,type:technicalDays?'return':'react',suggest});
+    });
+    if(!done.length&&c.lastVisit&&P[c.lastProcedure]){
+      let p=procOf(c.lastProcedure),key=procKeys(c.lastProcedure)[0],technicalDays=p.days||0,reactDays=technicalDays?0:(p.react||0);
+      if(technicalDays||reactDays){
+        let due=c.nextDue||add(c.lastVisit,technicalDays||reactDays);
+        out.push({...c,rid:String(c.id)+'::'+key,recurrenceKey:key,due,notify:technicalDays?add(due,-1):due,type:technicalDays?'return':'react',suggest:p.next||c.lastProcedure});
+      }
+    }
+  });
+  return out;
+}
+function future(r){return A.some(a=>sameClient(a,r)&&a.date>=today()&&!['cancelled','missed'].includes(a.status)&&procKeys(a.procedure).includes(r.recurrenceKey))}
 function segments(d){let r=work(d);if(!r)return[];let as=A.filter(a=>a.date===d&&!['cancelled','missed'].includes(a.status)).sort((a,b)=>a.time.localeCompare(b.time)),out=[],cur=r[0];as.forEach(a=>{let s=tmin(a.time),e=s+procOf(a.procedure).min;if(s>cur)out.push({k:'free',s:cur,e:s});out.push({k:'appt',a,s,e});cur=Math.max(cur,e)});if(cur<r[1])out.push({k:'free',s:cur,e:r[1]});return out}
 function firstSlot(d,proc){for(let i=0;i<21;i++){let x=add(d,i),dur=procOf(proc).min;for(let s of segments(x))if(s.k==='free'&&s.e-s.s>=dur)return{date:x,time:mt(s.s)}}return null}
 function clientHistory(phone){return A.filter(a=>a.phone===phone&&a.status==='done').sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time))}

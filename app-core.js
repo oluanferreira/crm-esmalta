@@ -32,7 +32,7 @@ const tmin=t=>{let[a,b]=t.split(':').map(Number);return a*60+b};
 const mt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
 const ini=n=>n.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
 const days=(a,b)=>Math.floor((obj(b)-obj(a))/86400000);
-const work=d=>{let x=obj(d).getDay();return x===0?null:[480,x===6?1080:1050]};
+const WORK_START=420;\nconst DAY_VISUAL_END=1440;\nconst work=d=>obj(d).getDay()===0?null:[WORK_START,DAY_VISUAL_END];
 const wstart=d=>{let x=obj(d),n=x.getDay();x.setDate(x.getDate()+(n===0?-6:1-n));return iso(x)};
 const procOf=id=>P[id]||{name:'(procedimento anterior)',min:60,price:0,days:0};
 const statusLabel=s=>({scheduled:'Agendado',confirmed:'Confirmado',done:'Concluído',cancelled:'Cancelado',missed:'Faltou'}[s]||s);
@@ -85,4 +85,4 @@ function render(){renderNav();title.textContent={today:'Hoje',agenda:'Agenda',re
 
 function toastMsg(t){toast.textContent=t;toast.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>toast.style.display='none',2600)}
 function closeSheet(){overlay.innerHTML=''}
-function valid(form,ignore){if(!P[form.procedure])return'Procedimento inválido. Escolha de novo.';let p=P[form.procedure],r=work(form.date);if(!r)return'Marina não atende aos domingos.';let s=tmin(form.time),e=s+p.min;if(s<r[0]||e>r[1])return'Esse procedimento ultrapassa o horário de atendimento.';let c=A.find(a=>String(a.id)!==String(ignore)&&a.date===form.date&&!['cancelled','missed'].includes(a.status)&&s<tmin(a.time)+procOf(a.procedure).min&&e>tmin(a.time));return c?`Conflita com ${c.client}, às ${c.time}.`:''}
+function valid(form,ignore){if(!P[form.procedure])return'Procedimento inválido. Escolha de novo.';let p=P[form.procedure],r=work(form.date);if(!r)return'Marina não atende aos domingos.';let s=tmin(form.time),e=s+p.min;if(s<WORK_START)return'Os atendimentos começam às 07:00.';let c=A.find(a=>String(a.id)!==String(ignore)&&a.date===form.date&&!['cancelled','missed'].includes(a.status)&&s<tmin(a.time)+procOf(a.procedure).min&&e>tmin(a.time));return c?`Conflita com ${c.client}, às ${c.time}.`:''}
